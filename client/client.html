@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<title>Our simple HTTP server</title>
+	<link rel="stylesheet" type="text/css" href="/style.css">
+	
+	<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-core/5.8.34/browser.min.js"></script>
+	<script type="text/babel">
+
+	</script>
+</head>
+<body>
+	<section id="top">
+		<h3>POST Status Code Tests</h3>
+		<form id="nameForm" action="/addUser" method="post">
+			<label for="name">Name: </label>
+			<input id="nameField" type="text" name="name" />
+			<label for="age">Age: </label>
+			<input id="ageField" type="number" name="age" min="0" max="100" step="1"/>
+			<input type="submit" value="Add User" />
+		</form>
+		<form id="userForm" action="/getUsers" method="get">
+			<select id='urlField'>
+				<option value='/getUsers'>/getUsers</option>
+				<option value='/notReal'>/notReal</option>
+			</select>
+			<select id="methodSelect">
+				<option value="get">GET</option>
+				<option value="head">HEAD</option>
+			</select>
+			<input type="submit" value="Get User" />
+		</form>
+	</section>
+	<section id="content">
+	</section>
+
+	<script>
+		let urlField = document.querySelector("select#urlField");
+		let methodSelect = document.querySelector("select#methodSelect");
+		let userForm = document.querySelector("form#userForm");
+		let nameForm = document.querySelector("form#nameForm");
+
+		//Add url update to urlField
+		urlField.addEventListener("change", (e) => {
+			document.querySelector("form#userForm").setAttribute("action", e.target.value);
+		});
+		//Add method update to methodSelect
+		methodSelect.addEventListener("change", (e) => {
+			document.querySelector("form#userForm").setAttribute("method", e.target.value);
+		});
+
+		//Add event to submit to prevent typical form behavior
+		userForm.addEventListener("submit", (e) => {
+			e.preventDefault();
+
+			const xhr = new XMLHttpRequest();
+			xhr.open(methodSelect.value, urlField.value, true);
+        	xhr.setRequestHeader("Content-Type", "application/json");
+			xhr.addEventListener("load", (e) => {
+				updateContent(methodSelect.value, e.target);
+			});
+			xhr.addEventListener("error", () => {
+				console.log("An error occured when sending the request");
+			});
+			xhr.send();
+		});
+		nameForm.addEventListener("submit", (e) => {
+			let data = JSON.stringify(Object.fromEntries(new FormData(nameForm).entries()));
+			e.preventDefault();
+
+			const xhr = new XMLHttpRequest();
+			xhr.open(nameForm.method, nameForm.action, true);
+			xhr.setRequestHeader("Content-Type", "application/json");
+			xhr.addEventListener("load", (e) => {
+				updateContent(nameForm.method, e.target);
+			});
+			xhr.addEventListener("error", () => {
+				console.log("An error occured when sending the request");
+			});
+			// console.log();
+			xhr.send(data);
+		});
+
+		function updateContent(method, request){
+			let status = document.createElement("h1");
+			let message = document.createElement("h3");
+			let content = document.querySelector("section#content");
+			content.innerHTML = "";
+
+			switch (method.toLowerCase()){
+				default:
+					//GET and POST
+					// console.log(request.responseJSON);
+					if (request.response){
+						let responseJSON = JSON.parse(request.response);
+						status.innerHTML = responseJSON.id;
+						message.innerHTML = responseJSON.message;
+					}else{
+						if (method.toLowerCase() == "post" && request.status == 204){
+							status.innerHTML = "User updated";
+						}
+					}
+					// console.log(request.response);
+					break;
+				case "head":
+					switch (request.status){
+						default:
+							status.innerHTML = request.status;
+							break;
+						case 200:
+							status.innerHTML = request.status + ": Success";
+							break;
+						case 404:
+							status.innerHTML = request.status + ": Not Found";
+							break;
+					}
+					break;
+				// case "post":
+
+				// 	break;
+			}
+
+			content.append(status);
+			content.append(message);
+		}
+ 	</script>
+
+</body>
+</html>
