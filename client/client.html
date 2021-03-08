@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-	<title>Our simple HTTP server</title>
+	<title>API Project: Poker</title>
 	<link rel="stylesheet" type="text/css" href="/style.css">
 	
 	<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-core/5.8.34/browser.min.js"></script>
@@ -11,61 +11,34 @@
 </head>
 <body>
 	<section id="top">
-		<h3>POST Status Code Tests</h3>
-		<form id="nameForm" action="/addUser" method="post">
+		<h3>Poker</h3>
+		<form id="nameForm" action="/joinGame" method="post">
 			<label for="name">Name: </label>
 			<input id="nameField" type="text" name="name" />
-			<label for="age">Age: </label>
-			<input id="ageField" type="number" name="age" min="0" max="100" step="1"/>
-			<input type="submit" value="Add User" />
+			<input type="submit" value="Add Player" />
 		</form>
-		<form id="userForm" action="/getUsers" method="get">
-			<select id='urlField'>
-				<option value='/getUsers'>/getUsers</option>
-				<option value='/notReal'>/notReal</option>
-			</select>
-			<select id="methodSelect">
-				<option value="get">GET</option>
-				<option value="head">HEAD</option>
-			</select>
-			<input type="submit" value="Get User" />
-		</form>
+		<button id="ready">Ready (all player test)</button>
+		<button id="showDeck">Show deck (debug)</button>
+		<button id="showCards">Show hands (debug)</button>
+		<button id="reset">Reset (debug)</button>
+
 	</section>
 	<section id="content">
 	</section>
 
 	<script>
+		let name = "";
 		let urlField = document.querySelector("select#urlField");
 		let methodSelect = document.querySelector("select#methodSelect");
-		let userForm = document.querySelector("form#userForm");
 		let nameForm = document.querySelector("form#nameForm");
-
-		//Add url update to urlField
-		urlField.addEventListener("change", (e) => {
-			document.querySelector("form#userForm").setAttribute("action", e.target.value);
-		});
-		//Add method update to methodSelect
-		methodSelect.addEventListener("change", (e) => {
-			document.querySelector("form#userForm").setAttribute("method", e.target.value);
-		});
+		let showCardsButton = document.querySelector("button#showCards");
+		let readyButton = document.querySelector("button#ready");
+		let showDeckButton = document.querySelector("button#showDeck");
+		let resetButton = document.querySelector("button#reset");
 
 		//Add event to submit to prevent typical form behavior
-		userForm.addEventListener("submit", (e) => {
-			e.preventDefault();
-
-			const xhr = new XMLHttpRequest();
-			xhr.open(methodSelect.value, urlField.value, true);
-        	xhr.setRequestHeader("Content-Type", "application/json");
-			xhr.addEventListener("load", (e) => {
-				updateContent(methodSelect.value, e.target);
-			});
-			xhr.addEventListener("error", () => {
-				console.log("An error occured when sending the request");
-			});
-			xhr.send();
-		});
 		nameForm.addEventListener("submit", (e) => {
-			let data = JSON.stringify(Object.fromEntries(new FormData(nameForm).entries()));
+			let data = Object.fromEntries(new FormData(nameForm).entries());
 			e.preventDefault();
 
 			const xhr = new XMLHttpRequest();
@@ -73,13 +46,117 @@
 			xhr.setRequestHeader("Content-Type", "application/json");
 			xhr.addEventListener("load", (e) => {
 				updateContent(nameForm.method, e.target);
+				name = data.name;
 			});
 			xhr.addEventListener("error", () => {
 				console.log("An error occured when sending the request");
 			});
 			// console.log();
-			xhr.send(data);
+			xhr.send(JSON.stringify(data));
 		});
+
+		readyButton.addEventListener("click", (e) => {
+			let data = {name: name};
+
+			const xhr = new XMLHttpRequest();
+			xhr.open("post", "/readyAll", true);
+			xhr.setRequestHeader("Content-Type", "application/json");
+			xhr.addEventListener("load", (e) => {
+				updateContent("post", e.target);
+			});
+			xhr.addEventListener("error", () => {
+				console.log("An error occured when sending the request");
+			});
+			// console.log();
+			xhr.send(JSON.stringify(data));
+
+		});
+		// readyButton.addEventListener("click", (e) => {
+		// 	let data = {name: name};
+
+		// 	const xhr = new XMLHttpRequest();
+		// 	xhr.open("post", "/playerReady", true);
+		// 	xhr.setRequestHeader("Content-Type", "application/json");
+		// 	xhr.addEventListener("load", (e) => {
+		// 		updateContent("post", e.target);
+		// 	});
+		// 	xhr.addEventListener("error", () => {
+		// 		console.log("An error occured when sending the request");
+		// 	});
+		// 	// console.log();
+		// 	xhr.send(JSON.stringify(data));
+
+		// });
+
+		showCardsButton.addEventListener("click", (e) => {
+			const xhr = new XMLHttpRequest();
+			xhr.open("get", "/getHands", true);
+			xhr.setRequestHeader("Content-Type", "application/json");
+			xhr.addEventListener("load", (e) => {
+				updateContent("get", e.target);
+			});
+			xhr.addEventListener("error", () => {
+				console.log("An error occured when sending the request");
+			});
+			xhr.send();
+		});
+
+		showDeckButton.addEventListener("click", (e) => {
+			const xhr = new XMLHttpRequest();
+			xhr.open("get", "/getCards", true);
+			xhr.setRequestHeader("Content-Type", "application/json");
+			xhr.addEventListener("load", (e) => {
+				updateContent("post", e.target);
+			});
+			xhr.addEventListener("error", () => {
+				console.log("An error occured when sending the request");
+			});
+			xhr.send();
+
+		});
+
+		resetButton.addEventListener("click", (e) => {
+			const xhr = new XMLHttpRequest();
+			xhr.open("get", "/reset", true);
+			xhr.setRequestHeader("Content-Type", "application/json");
+			xhr.addEventListener("load", (e) => {
+				updateContent("get", e.target);
+			});
+			xhr.addEventListener("error", () => {
+				console.log("An error occured when sending the request");
+			});
+			xhr.send();
+
+		});
+
+		function update(){
+			pollServer();
+		}
+
+		setInterval(() => { update(); }, 100);
+
+		function pollServer(){
+			let data = {};
+			const xhr = new XMLHttpRequest();
+			xhr.open("get", "/pollGame", true);
+			xhr.setRequestHeader("Content-Type", "application/json");
+			xhr.addEventListener("load", (e) => {
+				let responseJSON = {};
+				if (e.target.response){
+					responseJSON = JSON.parse(e.target.response);
+				}
+				// console.log(e.resp);
+				if (responseJSON.id == "Winner found"){
+					updateContent("get", e.target);
+				}
+				// updateContent(nameForm.method, e.target);
+			});
+			xhr.addEventListener("error", () => {
+				console.log("An error occured when sending the request");
+			});
+			// console.log();
+			xhr.send(JSON.stringify(data));
+		}
 
 		function updateContent(method, request){
 			let status = document.createElement("h1");
