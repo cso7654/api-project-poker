@@ -1,19 +1,11 @@
 // const Card = require(',/card.js');
 
 class Score {
-	// God I can't believe how absolutely shit airbnb's terrible
-	// coding standards are. Everything is just needlessly inefficient and
-	// only makes things less convenient and more unmanageable.
-	// I just need to vent this here so I don't keep the rage
-	// buried with the rest of the worrying amount of negativity
-	// in my system. I need to know who made/chose them so I have
-	// a good source for torture planning if I need to interrogate
-	// a programmer. This is absolutely the worst part about this course.
-
 	// Calculate the score based on a given hand of cards
 	evaluate(hand) {
 		// Get card values in descending order
 		this.cardVals = [];
+		this.high = 0;
 		// Store a hand type variable that is set while evaluating for quick comparisons
 		this.handType = 0;
 		for (let i = 0; i < hand.cards.length; i++) {
@@ -21,6 +13,7 @@ class Score {
 		}
 		// Sort card vals in descending order (highest first)
 		this.cardVals.sort((a, b) => b - a);
+		[this.high] = [this.cardVals[0]];
 
 		// Count occurances of each card
 		const counter = {};
@@ -36,7 +29,6 @@ class Score {
 
 		// Get pairs of cards
 		// Store a "pair" as the value of the card that is in a pair. otherPairVal is for 2 pairs
-		this.high = 0;
 		this.otherPairVal = 0;
 		let numPairs = 0;
 		// Find counter values of exactly 2
@@ -55,12 +47,12 @@ class Score {
 						this.otherPairVal = newHigh;
 					}
 					numPairs++;
-					this.handType = 1;
+					this.handType = 2;
 				} else {
 					// No pairs becomes 1 pair
 					this.high = Object.keys(counter)[i];
 					numPairs++;
-					this.handType = 2;
+					this.handType = 1;
 				}
 			}
 		}

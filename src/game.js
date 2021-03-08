@@ -110,11 +110,12 @@ class Game {
 		[topPlayers[0]] = [this.players[0]];
 		for (let i = 1; i < this.players.length; i++) {
 			// Compare current player to top player
-			if (this.players[i].hand.score > topPlayers[0].hand.score) {
+			const comparison = this.players[i].hand.score.compareTo(topPlayers[0].hand.score);
+			if (comparison === 1) {
 				// If current beats top, set new top
 				topPlayers = [];
 				[topPlayers[0]] = [this.players[i]];
-			} else if (this.players[i].hand.score === topPlayers[0].hand.score) {
+			} else if (comparison === 0) {
 				// If current matches top, ad to tied players
 				topPlayers.push(this.players[i]);
 			}
