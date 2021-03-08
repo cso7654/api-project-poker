@@ -65,9 +65,9 @@ class Deck {
 		// Use Fisher-Yates shuffling algorithm
 		let cardsLeft = this.cards.length;
 
-		while (cardsLeft > 0){
-			let rand = Math.floor(Math.random() * cardsLeft--);
-			let swap = this.cards[cardsLeft];
+		while (cardsLeft > 0) {
+			const rand = Math.floor(Math.random() * cardsLeft--);
+			const swap = this.cards[cardsLeft];
 			this.cards[cardsLeft] = this.cards[rand];
 			this.cards[rand] = swap;
 		}
