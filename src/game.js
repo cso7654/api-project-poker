@@ -128,7 +128,7 @@ class Game {
 	}
 
 	update() {
-		if (this.allPlayersReady()){
+		if (this.allPlayersReady()) {
 			const topPlayers = this.testForWinner();
 
 			if (topPlayers.length < 1) {

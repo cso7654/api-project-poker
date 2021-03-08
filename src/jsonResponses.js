@@ -71,31 +71,32 @@ const getHands = (request, response) => {
 	if (request.method.toLowerCase() !== 'head') {
 		const message = {
 			id: 'Current hands',
-			message: "",
+			message: '',
 		};
-		for (let i = 0; i < game.players.length; i++){
-			let cardMessage = "";
-			for (let j = 0; j < game.players[i].hand.cards.length; j++){
-				let card = game.players[i].hand.cards[j];
+		for (let i = 0; i < game.players.length; i++) {
+			let cardMessage = '';
+			for (let j = 0; j < game.players[i].hand.cards.length; j++) {
+				const card = game.players[i].hand.cards[j];
 				cardMessage += card.value;
-				cardMessage += " of ";
-				switch (card.suit){
-					case "H":
-						cardMessage += "Hearts";
-						break;
-					case "D":
-						cardMessage += "Diamonds";
-						break;
-					case "S":
-						cardMessage += "Spades";
-						break;
-					case "C":
-						cardMessage += "Clubs";
-						break;
+				cardMessage += ' of ';
+				switch (card.suit) {
+				default:
+				case 'H':
+					cardMessage += 'Hearts';
+					break;
+				case 'D':
+					cardMessage += 'Diamonds';
+					break;
+				case 'S':
+					cardMessage += 'Spades';
+					break;
+				case 'C':
+					cardMessage += 'Clubs';
+					break;
 				}
 
-				if (j < game.players[i].hand.cards.length - 1){
-					cardMessage += ", ";
+				if (j < game.players[i].hand.cards.length - 1) {
+					cardMessage += ', ';
 				}
 			}
 			message.message += `${game.players[i].name}: ${cardMessage}<br><br>`;
@@ -222,14 +223,14 @@ const readyAll = (request, response) => {
 		}
 		const message = {
 			id: 'Success',
-			message: "All players set to ready",
+			message: 'All players set to ready',
 		};
 
 		response.write(JSON.stringify(message));
 	}
 
 	response.end();
-}
+};
 
 // Return the current state of the game to the player
 // This method will also act as a sort of "heartbeat"
@@ -241,9 +242,9 @@ const pollGame = (request, response) => {
 
 		if (method !== 'head') {
 			// console.log("WINNER FOUND IN RESPONSE");
-			let winners = "";
-			for (let i = 0; i < game.winner.length; i++){
-				winners += game.winner[i].name + " ";
+			let winners = '';
+			for (let i = 0; i < game.winner.length; i++) {
+				winners += `${game.winner[i].name} `;
 			}
 			const message = {
 				id: 'Winner found',
@@ -275,14 +276,14 @@ const reset = (request, response) => {
 	if (request.method.toLowerCase() !== 'head') {
 		const message = {
 			id: 'Success',
-			message: 'The game has been reset'
+			message: 'The game has been reset',
 		};
 
 		response.write(JSON.stringify(message));
 	}
 
 	response.end();
-}
+};
 
 module.exports.getNotReal = getNotReal;
 module.exports.getCards = getCards;

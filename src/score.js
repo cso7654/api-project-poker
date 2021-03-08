@@ -10,10 +10,6 @@ class Score {
 	// a good source for torture planning if I need to interrogate
 	// a programmer. This is absolutely the worst part about this course.
 
-	constructor(hand) {
-		// this.evaluate(hand);
-	}
-
 	// Calculate the score based on a given hand of cards
 	evaluate(hand) {
 		// Get card values in descending order
