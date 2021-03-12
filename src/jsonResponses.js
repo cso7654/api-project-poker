@@ -3,7 +3,7 @@ const { Game } = require('./game');
 let game = new Game();
 const queryParams = require('./queryParams.js');
 
-//Method for making a POST-only response
+// Method for making a POST-only response
 const postRequest = (request, response, bodyPresent, noBody = undefined) => {
 	const method = request.method.toLowerCase();
 	if (method === 'post') {
@@ -17,21 +17,18 @@ const postRequest = (request, response, bodyPresent, noBody = undefined) => {
 				const props = JSON.parse(body);
 				// console.log(props);
 				bodyPresent(props);
+			} else if (noBody) {
+				noBody();
+			} else if (method === 'head') {
+				response.writeHead(400, { 'Content-Type': 'application/json' });
+				response.end();
 			} else {
-				// No body present
-				if (noBody) {
-					noBody();
-				} else if (method === 'head') {
-					response.writeHead(400, { 'Content-Type': 'application/json' });
-					response.end();
-				} else {
-					response.writeHead(400, { 'Content-Type': 'application/json' });
-					const message = {
-						id: 'Bad Request',
-						message: 'No body was provided with the POST request',
-					};
-					response.write(JSON.stringify(message));
-				}
+				response.writeHead(400, { 'Content-Type': 'application/json' });
+				const message = {
+					id: 'Bad Request',
+					message: 'No body was provided with the POST request',
+				};
+				response.write(JSON.stringify(message));
 			}
 			response.end();
 		});
@@ -49,7 +46,7 @@ const postRequest = (request, response, bodyPresent, noBody = undefined) => {
 	}
 };
 
-//Get a default 404
+// Get a default 404
 const getNotReal = (request, response) => {
 	response.writeHead(404, { 'Content-Type': 'application/json' });
 
@@ -65,7 +62,7 @@ const getNotReal = (request, response) => {
 	response.end();
 };
 
-//Get all the cards in the deck
+// Get all the cards in the deck
 const getCards = (request, response) => {
 	response.writeHead(200, { 'Content-Type': 'application/json' });
 
@@ -81,9 +78,9 @@ const getCards = (request, response) => {
 	response.end();
 };
 
-//Get a player's hand
+// Get a player's hand
 const getHand = (request, response) => {
-	//DO this with a post request so people can't just type in a URL to cheat
+	// DO this with a post request so people can't just type in a URL to cheat
 	postRequest(request, response,
 		(data) => {
 			const method = request.method.toLowerCase();
@@ -288,31 +285,31 @@ const pollGame = (request, response) => {
 
 				if (game.hasPlayer(properties.name)) {
 					// User is in game
-					//Find any events that this user hasn't been updated with
-					let relevantEvents = [];
-					for (let i = 0; i < game.events.length; i++){
-						if (game.events[i].players.includes(properties.name)){
+					// Find any events that this user hasn't been updated with
+					const relevantEvents = [];
+					for (let i = 0; i < game.events.length; i++) {
+						if (game.events[i].players.includes(properties.name)) {
 							relevantEvents.push(game.events[i]);
 						}
 					}
-					
-					if (relevantEvents.length > 0){
-						//If there is more than one event that the player must recieve
+
+					if (relevantEvents.length > 0) {
+						// If there is more than one event that the player must recieve
 						response.writeHead(200, { 'Content-Type': 'application/json' });
 						message.id = 'Update';
 						message.message = JSON.stringify(relevantEvents);
-						//Remove player's name from events
-						for (let i = 0; i < relevantEvents.length; i++){
-							let i2 = relevantEvents[i].players.indexOf(properties.name);
+						// Remove player's name from events
+						for (let i = 0; i < relevantEvents.length; i++) {
+							const i2 = relevantEvents[i].players.indexOf(properties.name);
 							if (i2 > -1) {
 								relevantEvents[i].players.splice(i2, 1);
 							}
 						}
-					}else{
-						//Player is up-to-date on all events
+					} else {
+						// Player is up-to-date on all events
 						response.writeHead(201, { 'Content-Type': 'application/json' });
 						message.id = 'No Content';
-						message.message = `Player ${properties.name} is already up to date`;	
+						message.message = `Player ${properties.name} is already up to date`;
 					}
 				} else {
 					// User is not in game
