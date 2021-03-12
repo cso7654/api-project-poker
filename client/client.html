@@ -10,109 +10,269 @@
 	</script>
 </head>
 <body>
-	<section id="top">
-		<h3>Poker</h3>
-		<form id="nameForm" action="/joinGame" method="post">
-			<label for="name">Name: </label>
-			<input id="nameField" type="text" name="name" />
-			<input type="submit" value="Add Player" />
-		</form>
-		<button id="ready">Ready (all player test)</button>
-		<button id="showDeck">Show deck (debug)</button>
-		<button id="showCards">Show hands (debug)</button>
-		<button id="reset">Reset (debug)</button>
+	<section id="nameSelectScreen" class="screen">
+		<section id="top">
+			<h3>Please enter a username</h3>
+			<form id="nameForm" action="/checkName" method="post">
+				<label for="name">Name: </label>
+				<input id="nameField" type="text" name="name" />
+				<input type="submit" value="Submit" />
+			</form>
+			<p id="startStatus"></p>
+		</section>
+	</section>
+
+	<section id="gameScreen" class="screen hidden">
+		<h3 id="status"></h3>
+
+		<section id="opponents">
+		</section>
+	
+		<section id="playerHand" class="hand selecting">
+		</section>
+
+		<section id="playerControls">
+			<button id="playerReadyButton">Ready</button>
+			<button id="playerExchangeCardsButton">Exchange cards</button>
+			<button id="reset">Reset (debug)</button>
+			<button id="leaveGameButton">Exit game</button>
+		</section>
 
 	</section>
-	<section id="content">
-	</section>
+
+
+
 
 	<script>
 		let name = "";
-		let urlField = document.querySelector("select#urlField");
-		let methodSelect = document.querySelector("select#methodSelect");
+		let playing = false;
+		let cardsSwapped = false;
+
+		let nameSelectScreen = document.querySelector("section#nameSelectScreen");
+		let gameScreen = document.querySelector("section#gameScreen");
+
 		let nameForm = document.querySelector("form#nameForm");
-		let showCardsButton = document.querySelector("button#showCards");
-		let readyButton = document.querySelector("button#ready");
-		let showDeckButton = document.querySelector("button#showDeck");
 		let resetButton = document.querySelector("button#reset");
 
-		//Add event to submit to prevent typical form behavior
+		let playerControls = {readyButton: document.querySelector("button#playerReadyButton"),
+							exchangeCardsButton: document.querySelector("button#playerExchangeCardsButton"),
+							leaveGameButton: document.querySelector("button#leaveGameButton")};
+
+		let opponentSection = document.querySelector("section#opponents");
+
+		let statusMessage = document.querySelector("p#startStatus");
+
+		let playerHand = document.querySelector("section#playerHand");
+
+		//Add event to name select submit to prevent redirecting
 		nameForm.addEventListener("submit", (e) => {
 			let data = Object.fromEntries(new FormData(nameForm).entries());
 			e.preventDefault();
 
 			const xhr = new XMLHttpRequest();
-			xhr.open(nameForm.method, nameForm.action, true);
+			xhr.open("get", "/checkName?name=" + data.name, true);
 			xhr.setRequestHeader("Content-Type", "application/json");
 			xhr.addEventListener("load", (e) => {
-				updateContent(nameForm.method, e.target);
-				name = data.name;
+				if (e.target.status === 200){
+					//Success, name is available, update client name and send join request
+					joinGame(data.name);
+				}else{
+					//Provided data was invalid
+					statusMessage.innerHTML = JSON.parse(e.target.response).message;
+				}
 			});
 			xhr.addEventListener("error", () => {
 				console.log("An error occured when sending the request");
 			});
-			// console.log();
-			xhr.send(JSON.stringify(data));
+			xhr.send();
 		});
 
-		readyButton.addEventListener("click", (e) => {
+		function toGameScreen(){
+			playing = true;
+			nameSelectScreen.classList.add("hidden");
+			gameScreen.classList.remove("hidden");
+			statusMessage = document.querySelector("h3#status");
+			opponentSection.innerHTML = "";
+			playerHand.innerHTML = "";
+		}
+
+		function toStartScreen(){
+			playing = false;
+			nameSelectScreen.classList.remove("hidden");
+			gameScreen.classList.add("hidden");
+			statusMessage = document.querySelector("p#startStatus");
+			statusMessage.innerHTML = "";
+		}
+
+		//Join the game
+		function joinGame(playerName){
+			let data = {name: playerName};
+			const xhr = new XMLHttpRequest();
+			xhr.open("post", "/joinGame", true);
+			xhr.setRequestHeader("Content-Type", "application/json");
+			xhr.addEventListener("load", (e) => {
+				if (e.target.status === 201){
+					//Successfully joined the game
+					name = playerName;	
+					toGameScreen();
+					updateCards();
+					//Add current opponents to the opponents section
+					addOpponents();
+				}else{
+					//An error occured while joining. Update the user
+					statusMessage.innerHTML = JSON.parse(e.target.response).message;
+				}
+			});
+			xhr.addEventListener("error", () => {
+				console.log("An error occured when sending the request");
+			});
+			xhr.send(JSON.stringify(data));
+
+		}
+
+		//Update the player's cards
+		function updateCards(){
+			let data = {name: name};
+			const xhr = new XMLHttpRequest();
+			xhr.open("post", "/getHand", true);
+			xhr.setRequestHeader("Content-Type", "application/json");
+			xhr.addEventListener("load", (e) => {
+				if (e.target.status === 200){
+					//Successfully got player cards
+					//Parse response into array of cards
+					let cards = parseCards(e.target.response);
+					//Clear player hand and add current cards to it
+					playerHand.innerHTML = "";
+					addCards(playerHand, cards, true);
+				}else{
+					//An error occured while getting cards. Update the user
+					statusMessage.innerHTML = JSON.parse(e.target.response).message;
+				}
+			});
+			xhr.addEventListener("error", () => {
+				console.log("An error occured when sending the request");
+			});
+			xhr.send(JSON.stringify(data));
+		}
+
+		//Get a list of all the cards from a message getting them from the server
+		function parseCards(message){
+			return Array.from(JSON.parse(JSON.parse(message).message))
+		}
+
+		//Add cards to a hand
+		function addCards(hand, cards, clickable = false){
+			for (let i = 0; i < cards.length; i++){
+				//Make a card object
+				let card = document.createElement("p");
+				card.classList.add("card");
+				if (cards[i].s) {
+					card.classList.add(cards[i].s.toLowerCase());
+				}
+				card.innerHTML = cards[i].v ? cards[i].v : "";
+				card.style.zIndex = i + 1;
+				card.dataset.index = i;
+
+				//Only add click events if clickable (should only be used for the player's hand)
+				if (clickable){
+					//Selection clicker
+					card.addEventListener("click", () => {
+						//Only select if the parent element is currently in selecting mode
+						if (card.parentElement.classList.contains("selecting")){
+							card.classList.toggle("selected");
+						}
+					});
+				}
+
+				hand.append(card);
+			}
+		}
+
+		//Add opponents to the opponents element
+		function addOpponents(){
+			const xhr = new XMLHttpRequest();
+			xhr.open("get", "/getPlayers", true);
+			xhr.setRequestHeader("Content-Type", "application/json");
+			xhr.addEventListener("load", (e) => {
+				if (e.target.status === 200){
+					//Success, add opponents to hand with blank cards (except for the one who shares the name with the player)
+					let opponentList = Array.from(JSON.parse(JSON.parse(e.target.response).message));
+					for (let i = 0; i < opponentList.length; i++){
+						if (opponentList[i] !== name){
+							opponentSection.append(createOpponentElement(opponentList[i]));
+						}
+					}
+				}else{
+					//Unsuccessful
+					statusMessage.innerHTML = JSON.parse(e.target.response).message;
+				}
+			});
+			xhr.addEventListener("error", () => {
+				console.log("An error occured when sending the request");
+			});
+			xhr.send();
+		}
+
+		//Make an element from an opponent's name
+		function createOpponentElement(name){
+			//Opponent element
+			let oppElem = document.createElement("section");
+			oppElem.classList.add("opponent");
+			oppElem.dataset.name = name;
+
+			//Opponent's hand and cards
+			let oppHand = document.createElement("section");
+			oppHand.classList.add("opponentHand");
+			//Create and add 5 blank cards to the opponent's hand
+			let oppCards = [{}, {}, {}, {}, {}];
+			addCards(oppHand, oppCards);
+			oppElem.append(oppHand);
+
+			//Opponent's name
+			let oppName = document.createElement("p");
+			oppName.classList.add("opponentName");
+			oppName.innerHTML = name;
+			oppElem.append(oppName);
+
+			return oppElem;
+		}
+
+		//Remove an opponent from the opponent section
+		function removeOpponent(name){
+			let opponentElem = opponentSection.querySelector(`section.opponent[data-name=${name}]`);
+			if (opponentElem){
+				opponentElem.remove();
+			}
+		}
+
+		playerControls.readyButton.addEventListener("click", (e) => {
 			let data = {name: name};
 
 			const xhr = new XMLHttpRequest();
-			xhr.open("post", "/readyAll", true);
+			xhr.open("post", "/playerReady", true);
 			xhr.setRequestHeader("Content-Type", "application/json");
 			xhr.addEventListener("load", (e) => {
-				updateContent("post", e.target);
+				playerHand.classList.remove("selecting");
 			});
 			xhr.addEventListener("error", () => {
 				console.log("An error occured when sending the request");
 			});
-			// console.log();
 			xhr.send(JSON.stringify(data));
-
 		});
-		// readyButton.addEventListener("click", (e) => {
-		// 	let data = {name: name};
 
-		// 	const xhr = new XMLHttpRequest();
-		// 	xhr.open("post", "/playerReady", true);
-		// 	xhr.setRequestHeader("Content-Type", "application/json");
-		// 	xhr.addEventListener("load", (e) => {
-		// 		updateContent("post", e.target);
-		// 	});
-		// 	xhr.addEventListener("error", () => {
-		// 		console.log("An error occured when sending the request");
-		// 	});
-		// 	// console.log();
-		// 	xhr.send(JSON.stringify(data));
+		playerControls.leaveGameButton.addEventListener("click", (e) => {
+			let data = {name: name};
 
-		// });
-
-		showCardsButton.addEventListener("click", (e) => {
 			const xhr = new XMLHttpRequest();
-			xhr.open("get", "/getHands", true);
+			xhr.open("post", "/leaveGame", true);
 			xhr.setRequestHeader("Content-Type", "application/json");
 			xhr.addEventListener("load", (e) => {
-				updateContent("get", e.target);
+				toStartScreen();
 			});
 			xhr.addEventListener("error", () => {
 				console.log("An error occured when sending the request");
 			});
-			xhr.send();
-		});
-
-		showDeckButton.addEventListener("click", (e) => {
-			const xhr = new XMLHttpRequest();
-			xhr.open("get", "/getCards", true);
-			xhr.setRequestHeader("Content-Type", "application/json");
-			xhr.addEventListener("load", (e) => {
-				updateContent("post", e.target);
-			});
-			xhr.addEventListener("error", () => {
-				console.log("An error occured when sending the request");
-			});
-			xhr.send();
-
+			xhr.send(JSON.stringify(data));
 		});
 
 		resetButton.addEventListener("click", (e) => {
@@ -120,7 +280,7 @@
 			xhr.open("get", "/reset", true);
 			xhr.setRequestHeader("Content-Type", "application/json");
 			xhr.addEventListener("load", (e) => {
-				updateContent("get", e.target);
+				// updateContent("get", e.target);
 			});
 			xhr.addEventListener("error", () => {
 				console.log("An error occured when sending the request");
@@ -129,77 +289,122 @@
 
 		});
 
+		setInterval(() => { update(); }, 250);
+
 		function update(){
-			pollServer();
+			//Only poll the server if the player has a set name and "playing" is true
+			if (name && playing){
+				pollServer();
+
+				//Check how many opponents there are
+				if (opponentSection.children.length == 0){
+					statusMessage.innerHTML = "Waiting for players to join...";
+				}
+			}
 		}
 
-		setInterval(() => { update(); }, 100);
-
 		function pollServer(){
-			let data = {};
+			
+			let data = {name: name};
 			const xhr = new XMLHttpRequest();
-			xhr.open("get", "/pollGame", true);
+			xhr.open("post", "/pollGame", true);
 			xhr.setRequestHeader("Content-Type", "application/json");
 			xhr.addEventListener("load", (e) => {
-				let responseJSON = {};
-				if (e.target.response){
-					responseJSON = JSON.parse(e.target.response);
+				if (e.target.status === 200){
+					//Only update if a 200 is returned, that means events are needed
+
+					let events = Array.from(JSON.parse(JSON.parse(e.target.response).message));
+					for (let i = 0; i < events.length; i++){
+						handleEvent(events[i]);
+					}
 				}
-				// console.log(e.resp);
-				if (responseJSON.id == "Winner found"){
-					updateContent("get", e.target);
-				}
-				// updateContent(nameForm.method, e.target);
 			});
-			xhr.addEventListener("error", () => {
+			xhr.addEventListener("error", (e) => {
+				// console.log(e);
 				console.log("An error occured when sending the request");
+				if (e.type == "error"){
+					toStartScreen();
+					statusMessage.innerHTML = "The server has stopped responding. You have been exited from the game";
+				}
 			});
 			// console.log();
 			xhr.send(JSON.stringify(data));
 		}
 
-		function updateContent(method, request){
-			let status = document.createElement("h1");
-			let message = document.createElement("h3");
-			let content = document.querySelector("section#content");
-			content.innerHTML = "";
-
-			switch (method.toLowerCase()){
+		function handleEvent(event){
+			// console.log(event);
+			switch (event.type){
 				default:
-					//GET and POST
-					// console.log(request.responseJSON);
-					if (request.response){
-						let responseJSON = JSON.parse(request.response);
-						status.innerHTML = responseJSON.id;
-						message.innerHTML = responseJSON.message;
-					}else{
-						if (method.toLowerCase() == "post" && request.status == 204){
-							status.innerHTML = "User updated";
+					//Do nothing
+					break;
+				case "playerJoin":
+					if (event.data !== name) {
+						opponentSection.append(createOpponentElement(event.data));
+					}
+					break;
+				case "playerLeave":
+					if (event.data !== name){
+						removeOpponent(event.data);
+					}
+					break;
+				case "playerReady":
+					showOpponentReady(event.data);
+					break;
+				case "win":
+					statusMessage.innerHTML = generateWinMessage(event.data.winners);
+					showOpponentCards(Array.from(event.data.playerData));
+					break;
+			}
+		}
+
+		function generateWinMessage(winners){
+			let message = "";
+			switch (winners.length){
+				case 1:
+					message += winners[0];
+					break;
+				case 2:
+					message += winners[0] + " and " + winners[1];
+					break;
+				case 3:
+				default:
+					for (let i = 0; i < winners.length; i++){
+						message += winners[i];
+						if (i <= winners.length - 2){
+							//Comma
+							message += ", ";
+						}
+						if (i == winners.length - 2){
+							//And
+							message += "and ";
 						}
 					}
-					// console.log(request.response);
 					break;
-				case "head":
-					switch (request.status){
-						default:
-							status.innerHTML = request.status;
-							break;
-						case 200:
-							status.innerHTML = request.status + ": Success";
-							break;
-						case 404:
-							status.innerHTML = request.status + ": Not Found";
-							break;
-					}
-					break;
-				// case "post":
-
-				// 	break;
 			}
-
-			content.append(status);
-			content.append(message);
+			message += winners.length > 1 ? " win!" : " wins!";
+			return message;
 		}
+
+		function showOpponentCards(playerData){
+			//Go through each player and set their element's cards' data
+			for (let playerI = 0; playerI < playerData.length; playerI++){
+				let name = playerData[playerI].name;
+				//Find the element this player corresponds to
+				let hand = opponentSection.querySelector(`section.opponent[data-name=${playerData[playerI].name}]>section.opponentHand`);
+				if (hand){
+					hand.innerHTML = "";
+					addCards(hand, playerData[playerI].hand.cards);
+				}
+			}
+		}
+
+		function showOpponentReady(name){
+			let nametag = opponentSection.querySelector(`section.opponent[data-name=${name}]>p.opponentName`);
+			if (nametag){
+				nametag.classList.add("ready");
+			}
+		}
+
  	</script>
 
 </body>

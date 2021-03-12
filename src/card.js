@@ -1,7 +1,7 @@
 class Card {
 	constructor(suit, value) {
-		this.suit = suit;
-		this.value = value;
+		this.s = suit;
+		this.v = value;
 	}
 
 	// Check if this card is higher than a provided one
@@ -11,9 +11,9 @@ class Card {
 
 	// Get the numerical value for this card (convert faces and aces to a normal integer)
 	getNumericalValue() {
-		switch (this.value) {
+		switch (this.v) {
 		default:
-			return this.value;
+			return this.v;
 		case 'J':
 			return 11;
 		case 'Q':

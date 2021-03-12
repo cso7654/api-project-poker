@@ -7,15 +7,53 @@ const Player = require('./player.js');
 
 class Game {
 	constructor() {
-		// this.maxPlayers = 8;
+		this.maxPlayers = 4;
 		this.players = [];
 		this.deck = new Deck.Deck();
 		this.deck.shuffleCards();
+		this.wasReset = true;
 
-		this.result = false;
+		this.winner = undefined;
+		this.gameOver = false;
+
+		//Keep an array of events that take place and names of players who haven't recieved them
+		//Once all players have revieced an event, remove it
+		this.events = [];
+
+		this.updateLoop = setInterval(() => { this.update(); }, 250);
+	}
+
+	//Removes any game over criteria
+	reset(){
+		this.gameOver = false;
 		this.winner = undefined;
 
-		this.updateLoop = setInterval(() => { this.update(); }, 100);
+		//Force all players to return their cards
+		for (let i = 0; i < this.players.length; i++){
+			this.players[i].hand.returnCards();
+		}
+
+		//Shuffle cards
+		this.deck.shuffleCards();
+
+		//Deal out cards
+		for (let i = 0; i < this.players.length; i++){
+			this.players[i].hand.drawCards(5);
+		}
+
+		this.logEvent("reset", "");
+	}
+
+	//Fully reset the game and clear everything
+	hardReset(){
+		this.reset();
+
+		this.players = [];
+
+		this.deck = new Deck.Deck();
+		this.deck.shuffleCards();
+
+		this.wasReset = true;
 	}
 
 	// Add a new player based on their name
@@ -32,18 +70,9 @@ class Game {
 		}
 		player.setHand(new Hand.Hand(this.deck));
 		player.hand.drawCards(5);
-	}
 
-	// Check if a name is taken by a player (names MUST be unique)
-	isNameAvailable(name) {
-		// Return false if any of the players has a name matching the provided one
-		for (let i = 0; i < this.players.length; i++) {
-			if (this.players[i].name === name) {
-				return false;
-			}
-		}
-		// No players have the name, it is available
-		return true;
+		this.logEvent("playerJoin", player.name);
+		this.wasReset = false;
 	}
 
 	// Check if a player with the given name is in this game
@@ -72,6 +101,15 @@ class Game {
 		if (i > -1) {
 			this.players.splice(i, 1);
 		}
+		this.logEvent("playerLeave", player.name);
+	}
+	
+	//Remove a player based on their name
+	removePlayerName(name){
+		let player = this.getPlayer(name);
+		if (player){
+			this.removePlayer(player);
+		}
 	}
 
 	// Set all players as not ready
@@ -91,6 +129,13 @@ class Game {
 		return true;
 	}
 
+	//Set a player as ready
+	setPlayerReady(name){
+		this.getPlayer(name).setReady(true);
+
+		this.logEvent("playerReady", name);
+	}
+
 	// Make all players draw their hands
 	drawHands() {
 		for (let i = 0; i < this.players.length; i++) {
@@ -107,51 +152,94 @@ class Game {
 		}
 
 		let topPlayers = [];
-		[topPlayers[0]] = [this.players[0]];
-		for (let i = 1; i < this.players.length; i++) {
-			// Compare current player to top player
-			const comparison = this.players[i].hand.score.compareTo(topPlayers[0].hand.score);
-			if (comparison === 1) {
-				// If current beats top, set new top
-				topPlayers = [];
-				[topPlayers[0]] = [this.players[i]];
-			} else if (comparison === 0) {
-				// If current matches top, ad to tied players
-				topPlayers.push(this.players[i]);
+		if (this.players.length > 0){
+			[topPlayers[0]] = [this.players[0]];
+			for (let i = 1; i < this.players.length; i++) {
+				// Compare current player to top player
+				const comparison = this.players[i].hand.score.compareTo(topPlayers[0].hand.score);
+				if (comparison === 1) {
+					// If current beats top, set new top
+					topPlayers = [];
+					[topPlayers[0] = this.players[i]];
+				} else if (comparison === 0) {
+					// If current matches top, add to tied players
+					topPlayers.push(this.players[i]);
+				}
 			}
-		}
-
-		if (topPlayers.length === 0 || topPlayers[0] === undefined || topPlayers[0].score === 0) {
-			return [];
+	
+			if (topPlayers.length === 0 || topPlayers[0] === undefined) {
+				return [];
+			}else{
+				//Get just the names
+				let topPlayerNames = [];
+				for (let i = 0; i < topPlayers.length; i++){
+					topPlayerNames.push(topPlayers[i].name);
+				}
+				topPlayers = topPlayerNames;
+			}
 		}
 
 		return topPlayers;
 	}
 
+
+
 	update() {
-		if (this.allPlayersReady()) {
+
+		//Check for winners
+		if (this.allPlayersReady() && !this.gameOver) {
 			const topPlayers = this.testForWinner();
 
 			if (topPlayers.length < 1) {
 				this.winner = undefined;
 			} else if (topPlayers.length > 0 && topPlayers[0] !== undefined) {
-				this.setWinner(topPlayers);
-				// console.log("WINNER FOUND");
+				this.winner = topPlayers;
+				this.logEvent("win", {winners: topPlayers, playerData: this.players});
+				this.gameOver = true;
 			}
 		}
-	}
 
-	setWinner(winner) {
-		this.winner = winner;
+		//Update events and remove any that are up to date with all players
+		let validEvents = [];
+		for (let i = 0; i < this.events.length; i++){
+			//If the length of the unupdated players is more than 0, it is valid
+			if (this.events[i].players.length > 0){
+				validEvents.push(this.events[i]);
+			}
+		}
+		this.events = validEvents;
+
+		//Check if all players have left. If so, reset
+		if (this.players.length === 0 && !this.wasReset){
+			this.hardReset();
+		}
 	}
 
 	hasResult() {
 		return this.winner !== undefined && this.winner.length > 0;
 	}
 
+	//Add an event to the events list so players can update when they need to
+	logEvent(type, data){
+		this.events.push({type: type,
+						 data: data,
+						 players: this.createPlayerNameArray()});
+	}
+
+	//Create an array of the names of all players. Used for events
+	createPlayerNameArray(){
+		let names = [];
+		for (let i = 0; i < this.players.length; i++){
+			names.push(this.players[i].name);
+		}
+		return names;
+	}
+
 	// End the game and clear the update interval
 	close() {
 		clearInterval(this.updateLoop);
+
+		this.logEvent("gameClose", "");
 	}
 }
 

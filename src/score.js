@@ -109,7 +109,7 @@ class Score {
 			let allSameSuit = true;
 			// Loop and check suits of all cards in hand
 			for (let i = 1; i < hand.cards.length; i++) {
-				if (hand.cards[i].suit !== hand.cards[i - 1].suit) {
+				if (hand.cards[i].s !== hand.cards[i - 1].s) {
 					allSameSuit = false;
 					break;
 				}
