@@ -220,11 +220,21 @@ const playerReady = (request, response) => {
 				};
 
 				if (game.hasPlayer(properties.name)) {
+					if (game.players.length > 1) {
+						// If more than one player
+						game.setPlayerReady(properties.name);
+						response.writeHead(200, { 'Content-Type': 'application/json' });
+						message.id = 'Updated';
+						message.message = `Player ${properties.name} is now ready`;
+					} else {
+						// Only one player, don't actually ready
+						// Return 202 "accepted" since nothing is wrong, but
+						// no other players are present to play
+						response.writeHead(202, { 'Content-Type': 'application/json' });
+						message.id = 'Accepted';
+						message.message = `No players are present to play, but player ${properties.name} is ready. Ignoring ready request.`;
+					}
 					// User is in game
-					game.setPlayerReady(properties.name);
-					response.writeHead(200, { 'Content-Type': 'application/json' });
-					message.id = 'Updated';
-					message.message = `Player ${properties.name} is now ready`;
 				} else {
 					// User is not in game
 					response.writeHead(409, { 'Content-Type': 'application/json' });
@@ -249,6 +259,47 @@ const playerReady = (request, response) => {
 				message: 'No body present in request',
 			};
 			response.write(JSON.stringify(message));
+		});
+};
+
+// Exchange some of a player's cards
+const exchangeCards = (request, response) => {
+	postRequest(request, response,
+		(properties) => {
+			if (properties.name !== undefined) {
+				const message = {
+					id: '',
+					message: '',
+				};
+
+				if (game.hasPlayer(properties.name) && properties.cards) {
+					// Parse and exchange cards
+					const cardArray = Array.from(properties.cards);
+					game.exchangePlayerCards(properties.name, cardArray);
+					response.writeHead(200, { 'Content-Type': 'application/json' });
+					message.id = 'Updated';
+					message.message = `Player ${properties.name} has exchanged cards`;
+				} else if (!properties.cards) {
+					// No card data provided
+					response.writeHead(400, { 'Content-Type': 'application/json' });
+					message.id = 'Bad Request';
+					message.message = 'No cards provided to exchange';
+				} else {
+					// User not in game
+					response.writeHead(409, { 'Content-Type': 'application/json' });
+					message.id = 'Conflict';
+					message.message = `The player ${properties.name} is not in this game`;
+				}
+
+				response.write(JSON.stringify(message));
+			} else {
+				response.writeHead(400, { 'Content-Type': 'application/json' });
+				const message = {
+					id: 'Bad Request',
+					message: 'Name is required to exchange cards',
+				};
+				response.write(JSON.stringify(message));
+			}
 		});
 };
 
@@ -427,3 +478,4 @@ module.exports.readyAll = readyAll;
 module.exports.reset = reset;
 module.exports.checkName = checkName;
 module.exports.getHand = getHand;
+module.exports.exchangeCards = exchangeCards;

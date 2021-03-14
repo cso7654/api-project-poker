@@ -43,6 +43,9 @@ const onRequest = (request, response) => {
 	case '/playerReady':
 		jsonHandler.playerReady(request, response);
 		break;
+	case '/exchangeCards':
+		jsonHandler.exchangeCards(request, response);
+		break;
 	case '/readyAll':
 		jsonHandler.readyAll(request, response);
 		break;

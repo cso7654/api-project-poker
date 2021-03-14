@@ -95,7 +95,7 @@ html, body {
 }
 
 .card.h,.card.d{
-	border-color: red;
+	border-color: black;
 	background-color: rgb(255, 255, 245);
 	background-image: url(./media/heart_icon.png);
 }
@@ -112,6 +112,10 @@ html, body {
 .card.c{
 	background-color: rgb(255, 255, 245);
 	background-image: url(./media/club_icon.png);
+}
+
+.hand.victory>.card, .opponentHand.victory>.card{
+	border-color: gold;
 }
 
 #playerHand{

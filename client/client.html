@@ -61,8 +61,7 @@
 		let statusMessage = document.querySelector("p#startStatus");
 
 		let playerHand = document.querySelector("section#playerHand");
-		let ready = false;
-		let cardsCleared = true;
+		let ready = false, exchangedCards = false, cardsCleared = true;
 
 		//Add event to name select submit to prevent redirecting
 		nameForm.addEventListener("submit", (e) => {
@@ -95,14 +94,28 @@
 			xhr.open("post", "/playerReady", true);
 			xhr.setRequestHeader("Content-Type", "application/json");
 			xhr.addEventListener("load", (e) => {
-				playerHand.classList.remove("selecting");
-				ready = true;
-				statusMessage.innerHTML = "Waiting for other players to ready...";
+				if (e.target.status == 200){
+					//Success, player set to ready
+					playerHand.classList.remove("selecting");
+					ready = true;
+					statusMessage.innerHTML = "Waiting for other players to ready...";
+				}else if (e.target.status == 202){
+					//Player not set to ready, no other players present
+					ready = false;
+				}
 			});
 			xhr.addEventListener("error", () => {
 				console.log("An error occured when sending the request");
 			});
 			xhr.send(JSON.stringify(data));
+		});
+
+		playerControls.exchangeCardsButton.addEventListener("click", (e) => {
+			//Only exchange if they player hasn't exchanged and has cards selected
+			if (!exchangedCards && document.querySelectorAll("#playerHand>.card.selected").length > 0){
+				exchangeCards();
+				playerHand.classList.remove("selecting");
+			}
 		});
 
 		playerControls.leaveGameButton.addEventListener("click", (e) => {
@@ -191,11 +204,13 @@
 					resetUI();
 					break;
 				case "drawCards":
+					exchangedCards = false;
 					updateCards();
 					break;
 				case "win":
 					statusMessage.innerHTML = generateWinMessage(event.data.winners);
 					showOpponentCards(Array.from(event.data.playerData));
+					highlightWinners(event.data.winners);
 					break;
 			}
 		}
@@ -209,6 +224,7 @@
 			}
 			//Enable select mode for player's hand
 			playerHand.classList.add("selecting");
+			playerHand.classList.remove("victory");
 			//Reset ready state
 			ready = false;
 		}
@@ -241,6 +257,7 @@
 				if (e.target.status === 201){
 					//Successfully joined the game
 					name = playerName;	
+					exchangedCards = false;
 					toGameScreen();
 					clearPlayerCards();
 					updateCards();
@@ -258,7 +275,7 @@
 
 		}
 
-		//Update the player's cards
+		//Update the player's cards with what is on the server
 		function updateCards(){
 			let data = {name: name};
 			const xhr = new XMLHttpRequest();
@@ -322,6 +339,49 @@
 				}
 
 				hand.append(card);
+			}
+		}
+
+		//Exchange the selected cards in the player's hand
+		function exchangeCards(){
+			if (!exchangedCards){
+				let cardArray = [];
+				let selectedCards = document.querySelectorAll("#playerHand>.card.selected");
+				for (let card of selectedCards){
+					cardArray.push({s: getCardSuit(card), v: card.innerHTML});
+				}
+
+				let data = {name: name, cards: cardArray};
+				const xhr = new XMLHttpRequest();
+				xhr.open("post", "/exchangeCards", true);
+				xhr.setRequestHeader("Content-Type", "application/json");
+				xhr.addEventListener("load", (e) => {
+					if (e.target.status === 200){
+						//Successfully exchanged cards
+						exchangedCards = true;
+						updateCards();
+					}else{
+						//An error occured while joining. Update the user
+						statusMessage.innerHTML = JSON.parse(e.target.response).message;
+					}
+				});
+				xhr.addEventListener("error", () => {
+					console.log("An error occured when sending the request");
+				});
+				xhr.send(JSON.stringify(data));
+			}
+		}
+
+		//Get the character suit from a card element
+		function getCardSuit(cardElem){
+			if (cardElem.classList.contains("h")){
+				return "H";
+			}else if (cardElem.classList.contains("d")){
+				return "D";
+			}else if (cardElem.classList.contains("c")){
+				return "C";
+			}else {
+				return "S";
 			}
 		}
 
@@ -407,6 +467,7 @@
 					break;
 			}
 			message += winners.length > 1 ? " win!" : " wins!";
+			message += " Press \"ready\" to play again.";
 			return message;
 		}
 
@@ -423,6 +484,21 @@
 			}
 		}
 
+		//Highlight the winner(s)'s cards in gold
+		function highlightWinners(winners){
+			for (let winner of winners){
+				if (winner == name){
+					playerHand.classList.add("victory");
+				}else{
+					console.log(winner);
+					let opponentHand = opponentSection.querySelector(`section.opponent[data-name=${winner}]>section.opponentHand`);
+					if (opponentHand){
+						opponentHand.classList.add("victory");
+					}
+				}
+			}
+		}
+
 		function showOpponentReady(name){
 			let nametag = opponentSection.querySelector(`section.opponent[data-name=${name}]>p.opponentName`);
 			if (nametag){
@@ -432,10 +508,13 @@
 
 		function hideOpponentCards(){
 			//Go through each opponent hand and remove the data on their cards to hide them
-			for (let card of document.querySelectorAll("section.opponentHand>.card")){
-				card.innerHTML = "";
-				//Overwrite all class values with just "card"
-				card.className = "card";
+			for (let hand of document.querySelectorAll("section.opponentHand")){
+				hand.classList.remove("victory");
+				for (let card of hand.querySelectorAll(".card")){
+					card.innerHTML = "";
+					//Overwrite all class values with just "card"
+					card.className = "card";
+				}
 			}
 		}
 
