@@ -34,7 +34,6 @@
 		<section id="playerControls">
 			<button id="playerReadyButton">Ready</button>
 			<button id="playerExchangeCardsButton">Exchange cards</button>
-			<button id="reset">Reset (debug)</button>
 			<button id="leaveGameButton">Exit game</button>
 		</section>
 
@@ -52,7 +51,6 @@
 		let gameScreen = document.querySelector("section#gameScreen");
 
 		let nameForm = document.querySelector("form#nameForm");
-		let resetButton = document.querySelector("button#reset");
 
 		let playerControls = {readyButton: document.querySelector("button#playerReadyButton"),
 							exchangeCardsButton: document.querySelector("button#playerExchangeCardsButton"),
@@ -63,6 +61,8 @@
 		let statusMessage = document.querySelector("p#startStatus");
 
 		let playerHand = document.querySelector("section#playerHand");
+		let ready = false;
+		let cardsCleared = true;
 
 		//Add event to name select submit to prevent redirecting
 		nameForm.addEventListener("submit", (e) => {
@@ -83,9 +83,135 @@
 			});
 			xhr.addEventListener("error", () => {
 				console.log("An error occured when sending the request");
+				statusMessage.innerHTML = "Unable to connect to server";
 			});
 			xhr.send();
 		});
+
+		playerControls.readyButton.addEventListener("click", (e) => {
+			let data = {name: name};
+
+			const xhr = new XMLHttpRequest();
+			xhr.open("post", "/playerReady", true);
+			xhr.setRequestHeader("Content-Type", "application/json");
+			xhr.addEventListener("load", (e) => {
+				playerHand.classList.remove("selecting");
+				ready = true;
+				statusMessage.innerHTML = "Waiting for other players to ready...";
+			});
+			xhr.addEventListener("error", () => {
+				console.log("An error occured when sending the request");
+			});
+			xhr.send(JSON.stringify(data));
+		});
+
+		playerControls.leaveGameButton.addEventListener("click", (e) => {
+			let data = {name: name};
+
+			const xhr = new XMLHttpRequest();
+			xhr.open("post", "/leaveGame", true);
+			xhr.setRequestHeader("Content-Type", "application/json");
+			xhr.addEventListener("load", (e) => {
+				toStartScreen();
+			});
+			xhr.addEventListener("error", () => {
+				console.log("An error occured when sending the request");
+			});
+			xhr.send(JSON.stringify(data));
+		});
+
+		setInterval(() => { update(); }, 250);
+
+		function update(){
+			//Only poll the server if the player has a set name and "playing" is true
+			if (name && playing){
+				pollServer();
+
+				//Check how many opponents there are
+				if (opponentSection.children.length == 0){
+					statusMessage.innerHTML = "Waiting for players to join...";
+					if (!cardsCleared){
+						//Clear player cards while waiting so they can't quit and rejoin until they get a good hand
+						clearPlayerCards();
+					}
+				}else if (!ready){
+					statusMessage.innerHTML = "Exchange cards or select \"ready\"";
+				}
+			}
+		}
+
+		function pollServer(){
+			
+			let data = {name: name};
+			const xhr = new XMLHttpRequest();
+			xhr.open("post", "/pollGame", true);
+			xhr.setRequestHeader("Content-Type", "application/json");
+			xhr.addEventListener("load", (e) => {
+				if (e.target.status === 200){
+					//Only update if a 200 is returned, that means events are needed
+
+					let events = Array.from(JSON.parse(JSON.parse(e.target.response).message));
+					for (let i = 0; i < events.length; i++){
+						handleEvent(events[i]);
+					}
+				}
+			});
+			xhr.addEventListener("error", (e) => {
+				// console.log(e);
+				console.log("An error occured when sending the request");
+				if (e.type == "error"){
+					toStartScreen();
+					statusMessage.innerHTML = "The server has stopped responding. You have been exited from the game";
+				}
+			});
+			// console.log();
+			xhr.send(JSON.stringify(data));
+		}
+
+		function handleEvent(event){
+			// console.log(event);
+			switch (event.type){
+				default:
+					//Do nothing. This is here for completeness
+					break;
+				case "playerJoin":
+					if (event.data !== name) {
+						opponentSection.append(createOpponentElement(event.data));
+					}
+					break;
+				case "playerLeave":
+					if (event.data !== name){
+						removeOpponent(event.data);
+					}
+					break;
+				case "playerReady":
+					showOpponentReady(event.data);
+					break;
+				case "reset":
+					resetUI();
+					break;
+				case "drawCards":
+					updateCards();
+					break;
+				case "win":
+					statusMessage.innerHTML = generateWinMessage(event.data.winners);
+					showOpponentCards(Array.from(event.data.playerData));
+					break;
+			}
+		}
+
+		function resetUI(){
+			//Hide opponent cards
+			hideOpponentCards();
+			//Remove ready state of opponents
+			for (let nametag of document.querySelectorAll("p.opponentName")){
+				nametag.classList.remove("ready");
+			}
+			//Enable select mode for player's hand
+			playerHand.classList.add("selecting");
+			//Reset ready state
+			ready = false;
+		}
 
 		function toGameScreen(){
 			playing = true;
@@ -94,6 +220,7 @@
 			statusMessage = document.querySelector("h3#status");
 			opponentSection.innerHTML = "";
 			playerHand.innerHTML = "";
+			playerHand.classList.add("selecting");
 		}
 
 		function toStartScreen(){
@@ -115,6 +242,7 @@
 					//Successfully joined the game
 					name = playerName;	
 					toGameScreen();
+					clearPlayerCards();
 					updateCards();
 					//Add current opponents to the opponents section
 					addOpponents();
@@ -138,6 +266,7 @@
 			xhr.setRequestHeader("Content-Type", "application/json");
 			xhr.addEventListener("load", (e) => {
 				if (e.target.status === 200){
+					cardsCleared = false;
 					//Successfully got player cards
 					//Parse response into array of cards
 					let cards = parseCards(e.target.response);
@@ -153,6 +282,14 @@
 				console.log("An error occured when sending the request");
 			});
 			xhr.send(JSON.stringify(data));
+		}
+
+		function clearPlayerCards(){
+			cardsCleared = true;
+			for (let card of document.querySelectorAll(".playerHand>.card")){
+				card.className = "card";
+				card.innerHTML = "";
+			}
 		}
 
 		//Get a list of all the cards from a message getting them from the server
@@ -245,118 +382,6 @@
 			}
 		}
 
-		playerControls.readyButton.addEventListener("click", (e) => {
-			let data = {name: name};
-
-			const xhr = new XMLHttpRequest();
-			xhr.open("post", "/playerReady", true);
-			xhr.setRequestHeader("Content-Type", "application/json");
-			xhr.addEventListener("load", (e) => {
-				playerHand.classList.remove("selecting");
-			});
-			xhr.addEventListener("error", () => {
-				console.log("An error occured when sending the request");
-			});
-			xhr.send(JSON.stringify(data));
-		});
-
-		playerControls.leaveGameButton.addEventListener("click", (e) => {
-			let data = {name: name};
-
-			const xhr = new XMLHttpRequest();
-			xhr.open("post", "/leaveGame", true);
-			xhr.setRequestHeader("Content-Type", "application/json");
-			xhr.addEventListener("load", (e) => {
-				toStartScreen();
-			});
-			xhr.addEventListener("error", () => {
-				console.log("An error occured when sending the request");
-			});
-			xhr.send(JSON.stringify(data));
-		});
-
-		resetButton.addEventListener("click", (e) => {
-			const xhr = new XMLHttpRequest();
-			xhr.open("get", "/reset", true);
-			xhr.setRequestHeader("Content-Type", "application/json");
-			xhr.addEventListener("load", (e) => {
-				// updateContent("get", e.target);
-			});
-			xhr.addEventListener("error", () => {
-				console.log("An error occured when sending the request");
-			});
-			xhr.send();
-
-		});
-
-		setInterval(() => { update(); }, 250);
-
-		function update(){
-			//Only poll the server if the player has a set name and "playing" is true
-			if (name && playing){
-				pollServer();
-
-				//Check how many opponents there are
-				if (opponentSection.children.length == 0){
-					statusMessage.innerHTML = "Waiting for players to join...";
-				}
-			}
-		}
-
-		function pollServer(){
-			
-			let data = {name: name};
-			const xhr = new XMLHttpRequest();
-			xhr.open("post", "/pollGame", true);
-			xhr.setRequestHeader("Content-Type", "application/json");
-			xhr.addEventListener("load", (e) => {
-				if (e.target.status === 200){
-					//Only update if a 200 is returned, that means events are needed
-
-					let events = Array.from(JSON.parse(JSON.parse(e.target.response).message));
-					for (let i = 0; i < events.length; i++){
-						handleEvent(events[i]);
-					}
-				}
-			});
-			xhr.addEventListener("error", (e) => {
-				// console.log(e);
-				console.log("An error occured when sending the request");
-				if (e.type == "error"){
-					toStartScreen();
-					statusMessage.innerHTML = "The server has stopped responding. You have been exited from the game";
-				}
-			});
-			// console.log();
-			xhr.send(JSON.stringify(data));
-		}
-
-		function handleEvent(event){
-			// console.log(event);
-			switch (event.type){
-				default:
-					//Do nothing
-					break;
-				case "playerJoin":
-					if (event.data !== name) {
-						opponentSection.append(createOpponentElement(event.data));
-					}
-					break;
-				case "playerLeave":
-					if (event.data !== name){
-						removeOpponent(event.data);
-					}
-					break;
-				case "playerReady":
-					showOpponentReady(event.data);
-					break;
-				case "win":
-					statusMessage.innerHTML = generateWinMessage(event.data.winners);
-					showOpponentCards(Array.from(event.data.playerData));
-					break;
-			}
-		}
-
 		function generateWinMessage(winners){
 			let message = "";
 			switch (winners.length){
@@ -402,6 +427,15 @@
 			let nametag = opponentSection.querySelector(`section.opponent[data-name=${name}]>p.opponentName`);
 			if (nametag){
 				nametag.classList.add("ready");
+			}
+		}
+
+		function hideOpponentCards(){
+			//Go through each opponent hand and remove the data on their cards to hide them
+			for (let card of document.querySelectorAll("section.opponentHand>.card")){
+				card.innerHTML = "";
+				//Overwrite all class values with just "card"
+				card.className = "card";
 			}
 		}
 

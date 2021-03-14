@@ -16,6 +16,10 @@ class Game {
 		this.winner = undefined;
 		this.gameOver = false;
 
+		this.resetDelay = 3000; //Wait 3 seconds before resetting after a round
+		this.resetCounter = 0;
+		this.lastUpdateTime = 0;
+
 		// Keep an array of events that take place and names of players who haven't recieved them
 		// Once all players have revieced an event, remove it
 		this.events = [];
@@ -27,19 +31,10 @@ class Game {
 	reset() {
 		this.gameOver = false;
 		this.winner = undefined;
+		this.resetCounter = 0;
 
-		// Force all players to return their cards
-		for (let i = 0; i < this.players.length; i++) {
-			this.players[i].hand.returnCards();
-		}
-
-		// Shuffle cards
-		this.deck.shuffleCards();
-
-		// Deal out cards
-		for (let i = 0; i < this.players.length; i++) {
-			this.players[i].hand.drawCards(5);
-		}
+		this.clearReadyStates();
+		this.drawHands();
 
 		this.logEvent('reset', '');
 	}
@@ -136,12 +131,17 @@ class Game {
 		this.logEvent('playerReady', name);
 	}
 
-	// Make all players draw their hands
+	// Make all players draw new hands
 	drawHands() {
 		for (let i = 0; i < this.players.length; i++) {
 			this.players[i].hand.returnCards();
+		}
+		this.deck.shuffleCards();
+		for (let i = 0; i < this.players.length; i++){
 			this.players[i].hand.drawCards(5);
 		}
+
+		this.logEvent('drawCards', '');
 	}
 
 	// Get the winner of the game (or winners if a tie)
@@ -205,10 +205,21 @@ class Game {
 		}
 		this.events = validEvents;
 
+		//Delay before next round after a win
+		if (this.gameOver){
+			this.resetCounter += ((new Date().getTime()) - this.lastUpdateTime);
+		}
+		if (this.resetCounter >= this.resetDelay){
+			this.reset();
+		}
+
 		// Check if all players have left. If so, reset
 		if (this.players.length === 0 && !this.wasReset) {
 			this.hardReset();
 		}
+
+		//Update last update time
+		this.lastUpdateTime = new Date().getTime();
 	}
 
 	hasResult() {
