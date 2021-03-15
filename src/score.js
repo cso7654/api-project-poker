@@ -169,15 +169,18 @@ class Score {
 		// Preliminary hand type check
 		if (this.handType > score.handType) {
 			return 1;
-		} if (this.handType < score.handType) {
+		} 
+		if (this.handType < score.handType) {
 			return -1;
 		}
 		// Hand types are the same, so compare highest values
+		//Start with 2 pairs since there are 2 values to check
 		if (this.handType === 2 && this.high === score.high) {
-			// Two pairs with same highest pair. Must compare once for each
+			// Two pairs with same highest pair. Must compare once for each pair
 			if (this.otherPairVal > score.otherPairVal) {
 				return 1;
-			} if (this.otherPairVal < score.otherPairVal) {
+			} 
+			if (this.otherPairVal < score.otherPairVal) {
 				return -1;
 			}
 			return 0;

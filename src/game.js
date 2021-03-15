@@ -88,6 +88,7 @@ class Game {
 	// Remove a player from the game
 	removePlayer(player) {
 		const i = this.players.indexOf(player);
+		player.hand.returnCards();
 		if (i > -1) {
 			this.players.splice(i, 1);
 		}
@@ -174,8 +175,7 @@ class Game {
 				const comparison = this.players[i].hand.score.compareTo(topPlayers[0].hand.score);
 				if (comparison === 1) {
 					// If current beats top, set new top
-					topPlayers = [];
-					[topPlayers[0]] = [this.players[i]];
+					topPlayers = [this.players[i]];
 				} else if (comparison === 0) {
 					// If current matches top, add to tied players
 					topPlayers.push(this.players[i]);
